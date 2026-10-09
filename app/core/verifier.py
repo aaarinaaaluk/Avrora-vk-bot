@@ -1,4 +1,3 @@
-```python
 from enum import Enum
 
 from pydantic import BaseModel, Field
@@ -47,4 +46,4 @@ def verify_claim(claim: str) -> VerificationResult:
         ),
         evidence=[],
     )
-```
+    

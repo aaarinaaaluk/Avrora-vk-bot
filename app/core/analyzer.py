@@ -1,3 +1,4 @@
+from enum import Enum
 
 from pydantic import BaseModel
 
@@ -12,6 +13,12 @@ from app.classifier.intent import (
 from app.core.source_catalog import find_sources_by_claim_types
 
 
+class AnalysisRoute(str, Enum):
+    EVIDENCE_SEARCH = "EVIDENCE_SEARCH"
+    GENERAL_INFORMATION = "GENERAL_INFORMATION"
+    CLINICIAN_GUIDANCE = "CLINICIAN_GUIDANCE"
+
+
 class AnalysisResult(BaseModel):
     text: str
     intent: IntentType
@@ -19,18 +26,37 @@ class AnalysisResult(BaseModel):
     claim_type: ClaimType
     claim_tags: list[ClaimType]
     claim_type_explanation: str
+    route: AnalysisRoute
+    safety_message: str | None = None
     candidate_sources: list[dict]
 
 
 def analyze_query(text: str) -> AnalysisResult:
-    """Выполняет предварительный анализ запроса без медицинского вердикта."""
+    """Классифицирует запрос и выбирает следующий шаг обработки."""
     intent_result = classify_intent(text)
     claim_result = classify_claim_type(text)
 
-    # Личные медицинские запросы не направляем в обычный подбор источников.
+    safety_message = None
+
     if intent_result.intent == IntentType.PERSONAL_MEDICAL:
+        route = AnalysisRoute.CLINICIAN_GUIDANCE
+        safety_message = (
+            "Этот вопрос касается вашего личного здоровья. "
+            "Подходящий рацион зависит от индивидуальных обстоятельств. "
+            "Обсудите выбор диеты с квалифицированным медицинским специалистом. "
+            "Сервис не ставит диагнозы и не назначает лечение."
+        )
         sources = []
+
+    elif intent_result.intent in (
+        IntentType.GENERAL_QUESTION,
+        IntentType.UNCLEAR,
+    ):
+        route = AnalysisRoute.GENERAL_INFORMATION
+        sources = []
+
     else:
+        route = AnalysisRoute.EVIDENCE_SEARCH
         source_types = [
             tag.value
             for tag in claim_result.tags
@@ -45,5 +71,7 @@ def analyze_query(text: str) -> AnalysisResult:
         claim_type=claim_result.claim_type,
         claim_tags=claim_result.tags,
         claim_type_explanation=claim_result.explanation,
+        route=route,
+        safety_message=safety_message,
         candidate_sources=sources,
     )
