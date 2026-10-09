@@ -20,3 +20,21 @@ def load_sources() -> list[dict[str, Any]]:
         raise ValueError("Каталог источников должен быть списком.")
 
     return sources
+
+
+def find_sources_by_claim_types(
+    claim_types: list[str],
+) -> list[dict[str, Any]]:
+    """Находит источники, подходящие хотя бы по одной метке."""
+    requested_types = set(claim_types)
+
+    if not requested_types:
+        return []
+
+    return [
+        source
+        for source in load_sources()
+        if requested_types.intersection(
+            source.get("supported_claim_types", [])
+        )
+    ]
