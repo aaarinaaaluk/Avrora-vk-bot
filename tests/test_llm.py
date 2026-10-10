@@ -61,3 +61,15 @@ def test_build_evidence_context_warns_about_keyword_matches():
     assert "совпадению слов" in context
     assert "не считаются подтверждёнными доказательствами" in context
     assert "Учитывай контекст и ограничения источника" in context
+
+def test_evidence_assessment_defaults_to_uncertain():
+    from app.core.llm import EvidenceAssessment
+
+    assessment = EvidenceAssessment()
+
+    assert assessment.relevant is False
+    assert assessment.supports_claim is None
+    assert assessment.limitations == []
+    assert assessment.source_url is None
+    assert assessment.page_number is None
+    assert "Недостаточно данных" in assessment.explanation

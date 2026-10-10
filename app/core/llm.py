@@ -1,6 +1,8 @@
 
 from typing import Protocol
 
+from pydantic import BaseModel, Field
+
 from app.sources.text_search import SearchResult
 
 
@@ -21,6 +23,17 @@ class MockLLMClient:
             "доказательством и требует проверки по источникам."
         )
 
+class EvidenceAssessment(BaseModel):
+    """Структурированная оценка найденных фрагментов."""
+
+    relevant: bool = False
+    supports_claim: bool | None = None
+    explanation: str = (
+        "Недостаточно данных для оценки найденных фрагментов."
+    )
+    limitations: list[str] = Field(default_factory=list)
+    source_url: str | None = None
+    page_number: int | None = None
 
 def build_evidence_context(results: list[SearchResult]) -> str:
     """Формирует контекст из найденных фрагментов с указанием источников."""
