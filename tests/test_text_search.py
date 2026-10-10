@@ -50,3 +50,20 @@ def test_search_respects_result_limit(sample_document):
 def test_search_rejects_invalid_limit(sample_document):
     with pytest.raises(ValueError):
         search_document(sample_document, "киста", limit=0)
+
+
+def test_search_snippets_are_short_and_keep_word_boundaries(sample_document):
+    results = search_document(sample_document, "киста почки")
+
+    assert results
+    for result in results:
+        assert len(result.text) <= 230
+        assert not result.text.startswith("…")
+        assert not result.text.endswith("…")
+
+
+def test_search_snippet_contains_matching_terms(sample_document):
+    results = search_document(sample_document, "киста почки")
+
+    assert "киста" in results[0].text.lower()
+    assert "почки" in results[0].text.lower()
