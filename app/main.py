@@ -1,6 +1,6 @@
 
 from fastapi import FastAPI
-
+from app.vk.handler import router as vk_router
 from app.core.analyzer import AnalysisResult, analyze_query
 from app.core.verifier import (
     ClaimRequest,
@@ -9,6 +9,7 @@ from app.core.verifier import (
 )
 
 app = FastAPI(title="AVRORA")
+app.include_router(vk_router)
 
 
 @app.get("/")

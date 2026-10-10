@@ -48,10 +48,20 @@ def analyze_query(text: str) -> AnalysisResult:
         )
         sources = []
 
-    elif intent_result.intent in (
-        IntentType.GENERAL_QUESTION,
-        IntentType.UNCLEAR,
-    ):
+    elif intent_result.intent == IntentType.GENERAL_QUESTION:
+        if any(tag != ClaimType.UNCLEAR for tag in claim_result.tags):
+            route = AnalysisRoute.EVIDENCE_SEARCH
+            source_types = [
+                tag.value
+                for tag in claim_result.tags
+                if tag != ClaimType.UNCLEAR
+            ]
+            sources = find_sources_by_claim_types(source_types)
+        else:
+            route = AnalysisRoute.GENERAL_INFORMATION
+            sources = []
+
+    elif intent_result.intent == IntentType.UNCLEAR:
         route = AnalysisRoute.GENERAL_INFORMATION
         sources = []
 

@@ -4,7 +4,6 @@ from pydantic import BaseModel, Field
 
 from app.sources.text_search import SearchResult
 
-
 class ClaimRequest(BaseModel):
     claim: str = Field(min_length=1, max_length=2000)
 
@@ -36,10 +35,14 @@ class VerificationResult(BaseModel):
     explanation: str
     evidence: list[EvidenceItem] = Field(default_factory=list)
 
+
 def verify_claim(
     claim: str,
     search_results: list[SearchResult] | None = None,
 ) -> VerificationResult:
+    if search_results is None:
+        search_results = []
+
     evidence = [
         EvidenceItem(
             source_id=result.source_url,
@@ -55,7 +58,7 @@ def verify_claim(
                 "Содержание ещё не оценено на предмет подтверждения утверждения.",
             ],
         )
-        for result in (search_results or [])
+        for result in search_results
     ]
 
     return VerificationResult(
@@ -73,4 +76,5 @@ def verify_claim(
         ),
         evidence=evidence,
     )
+
     
