@@ -71,3 +71,10 @@ def test_search_snippet_contains_matching_terms(sample_document):
 
     assert "киста" in results[0].text.lower()
     assert "почки" in results[0].text.lower()
+
+
+def test_search_score_is_only_keyword_overlap(sample_document):
+    results = search_document(sample_document, "киста почки")
+
+    assert results
+    assert results[0].score == len(results[0].matched_terms)
