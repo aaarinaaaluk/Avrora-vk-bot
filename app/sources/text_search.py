@@ -13,7 +13,7 @@ class SearchResult(BaseModel):
 
 
 def extract_snippet(text: str, terms: set[str], window: int = 220) -> str:
-    """Возвращает короткий фрагмент вокруг найденного слова."""
+    """Возвращает фрагмент с контекстом вокруг найденного слова."""
     if not text.strip():
         return ""
 
@@ -31,17 +31,28 @@ def extract_snippet(text: str, terms: set[str], window: int = 220) -> str:
     start = max(0, position - window // 2)
     end = min(len(text), position + window // 2)
 
-    # Сдвигаем начало до границы слова.
-    if start > 0:
-        while start < len(text) and text[start].isalnum():
-            start += 1
-        while start < len(text) and not text[start].isalnum():
-            start += 1
+    # По возможности начинаем с границы предложения.
+    sentence_start = max(
+        text.rfind(".", 0, start),
+        text.rfind("!", 0, start),
+        text.rfind("?", 0, start),
+        text.rfind("\n", 0, start),
+    )
+    if sentence_start >= 0:
+        start = sentence_start + 1
 
-    # Сдвигаем конец до границы слова.
-    if end < len(text):
-        while end > start and text[end - 1].isalnum():
-            end -= 1
+    # По возможности заканчиваем на границе предложения.
+    sentence_ends = [
+        pos for pos in (
+            text.find(".", end),
+            text.find("!", end),
+            text.find("?", end),
+            text.find("\n", end),
+        )
+        if pos >= 0
+    ]
+    if sentence_ends:
+        end = min(sentence_ends) + 1
 
     snippet = text[start:end].strip()
 

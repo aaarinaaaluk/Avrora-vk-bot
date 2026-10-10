@@ -14,6 +14,7 @@ class PDFPage(BaseModel):
 class PDFDocument(BaseModel):
     """Извлечённый текст PDF-документа."""
 
+    title: str
     source_url: str
     page_count: int
     pages: list[PDFPage]
@@ -22,8 +23,9 @@ class PDFDocument(BaseModel):
 def extract_pdf_text(
     pdf_path: str | Path,
     source_url: str,
+    title: str = "Неизвестный документ",
 ) -> PDFDocument:
-    """Извлекает текст PDF, сохраняя нумерацию страниц."""
+    """Извлекает текст PDF, сохраняя название и номера страниц."""
     path = Path(pdf_path)
 
     if not path.is_file():
@@ -40,7 +42,9 @@ def extract_pdf_text(
     ]
 
     return PDFDocument(
+        title=title,
         source_url=source_url,
         page_count=len(pages),
         pages=pages,
     )
+    

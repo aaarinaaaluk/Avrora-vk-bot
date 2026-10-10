@@ -7,6 +7,7 @@ from app.sources.text_search import search_document
 @pytest.fixture
 def sample_document():
     return PDFDocument(
+        title="Тестовый документ",
         source_url="https://example.org/sample.pdf",
         page_count=3,
         pages=[
