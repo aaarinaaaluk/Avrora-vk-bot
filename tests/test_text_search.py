@@ -33,6 +33,9 @@ def test_search_finds_matching_pages(sample_document):
     assert [result.page_number for result in results] == [1, 2]
     assert results[0].score == 2
     assert results[0].matched_terms == ["киста", "почки"]
+    assert results[0].document_title == "Тестовый документ"
+    assert results[0].source_url == "https://example.org/sample.pdf"
+    assert results[0].page_number == 1
 
 
 def test_search_returns_empty_when_no_terms_match(sample_document):

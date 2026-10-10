@@ -6,6 +6,8 @@ from app.sources.pdf_reader import PDFDocument
 
 
 class SearchResult(BaseModel):
+    document_title: str
+    source_url: str
     page_number: int
     text: str
     matched_terms: list[str]
@@ -94,6 +96,8 @@ def search_document(
         if matched:
             results.append(
                 SearchResult(
+                    document_title=document.title,
+                    source_url=document.source_url,
                     page_number=page.page_number,
                     text=extract_snippet(page.text, set(matched)),
                     matched_terms=matched,
