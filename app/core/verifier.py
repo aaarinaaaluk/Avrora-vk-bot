@@ -2,6 +2,8 @@ from enum import Enum
 
 from pydantic import BaseModel, Field
 
+from app.sources.text_search import SearchResult
+
 
 class ClaimRequest(BaseModel):
     claim: str = Field(min_length=1, max_length=2000)
@@ -34,16 +36,41 @@ class VerificationResult(BaseModel):
     explanation: str
     evidence: list[EvidenceItem] = Field(default_factory=list)
 
+def verify_claim(
+    claim: str,
+    search_results: list[SearchResult] | None = None,
+) -> VerificationResult:
+    evidence = [
+        EvidenceItem(
+            source_id=result.source_url,
+            source_name=result.document_title,
+            source_url=result.source_url,
+            evidence_summary=(
+                f"Найден фрагмент на странице {result.page_number}. "
+                f"Совпавшие слова: {', '.join(result.matched_terms)}. "
+                f"Текст: {result.text}"
+            ),
+            limitations=[
+                "Фрагмент найден по совпадению слов.",
+                "Содержание ещё не оценено на предмет подтверждения утверждения.",
+            ],
+        )
+        for result in (search_results or [])
+    ]
 
-def verify_claim(claim: str) -> VerificationResult:
     return VerificationResult(
         claim=claim,
         status=VerificationStatus.INSUFFICIENT,
         confidence=ConfidenceLevel.LOW,
         explanation=(
+            "Найдены фрагменты источников, но их содержание ещё не оценено. "
+            "Совпадение слов не подтверждает медицинское утверждение. "
+            "Для вывода необходимо проверить контекст и качество доказательств."
+            if evidence
+            else
             "Пока недостаточно проверенных доказательств для вывода. "
             "Необходимо найти подходящие источники и оценить их содержание."
         ),
-        evidence=[],
+        evidence=evidence,
     )
     
