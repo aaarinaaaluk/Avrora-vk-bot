@@ -45,3 +45,19 @@ def test_build_evidence_context_handles_empty_results():
     context = build_evidence_context([])
 
     assert "не найдены" in context
+
+def test_build_evidence_context_warns_about_keyword_matches():
+    result = SearchResult(
+        document_title="Клинические рекомендации",
+        source_url="https://example.org/guideline.pdf",
+        page_number=1,
+        text="Текст для проверки.",
+        matched_terms=["проверки"],
+        score=1,
+    )
+
+    context = build_evidence_context([result])
+
+    assert "совпадению слов" in context
+    assert "не считаются подтверждёнными доказательствами" in context
+    assert "Учитывай контекст и ограничения источника" in context
