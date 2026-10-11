@@ -2,13 +2,28 @@
 
 import base64
 import json
+import ssl
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from pathlib import Path
 from threading import Lock
 from typing import Protocol
 from uuid import uuid4
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+GIGACHAT_CA_FILE = (
+    PROJECT_ROOT / "certs" / "russian_trusted_root_ca_pem.crt"
+)
+
+
+def _create_gigachat_ssl_context() -> ssl.SSLContext:
+    context = ssl.create_default_context()
+    if GIGACHAT_CA_FILE.is_file():
+        context.load_verify_locations(cafile=str(GIGACHAT_CA_FILE))
+    return context
 
 from pydantic import BaseModel, Field
 
@@ -96,7 +111,11 @@ class GigaChatClient:
     @staticmethod
     def _read_json(request: urllib.request.Request, timeout: int = 30) -> dict:
         try:
-            with urllib.request.urlopen(request, timeout=timeout) as response:
+            with urllib.request.urlopen(
+                request,
+                timeout=timeout,
+                context=_create_gigachat_ssl_context(),
+            ) as response:
                 raw = response.read().decode("utf-8")
         except urllib.error.HTTPError as exc:
             # Не печатаем заголовки запроса, в которых могут быть секреты.

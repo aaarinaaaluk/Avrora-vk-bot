@@ -23,7 +23,7 @@ class FakeResponse:
 def test_gigachat_uses_oauth_and_reuses_access_token(monkeypatch):
     calls = []
 
-    def fake_urlopen(request, timeout=30):
+    def fake_urlopen(request, timeout=30, context=None):
         calls.append(request)
         if request.full_url.endswith("/api/v2/oauth"):
             return FakeResponse({
