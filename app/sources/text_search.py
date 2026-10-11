@@ -75,14 +75,26 @@ def search_document(
     if limit < 1:
         raise ValueError("limit должен быть не меньше 1")
 
-    terms = {
+    query_tokens = {
         word.lower()
         for word in re.findall(r"\w+", query.lower())
-        if len(word) > 2
+    }
+    # Числа важны для запросов вроде «диабет 1 типа».
+    terms = {
+        word for word in query_tokens
+        if len(word) > 2 or word.isdigit()
     }
 
     if not terms:
         return []
+
+    title_terms = {
+        word.lower()
+        for word in re.findall(r"\w+", document.title.lower())
+        if len(word) > 2 or word.isdigit()
+    }
+    # Совпадение с названием документа повышает релевантность.
+    title_bonus = 5 * len(terms.intersection(title_terms))
 
     results = []
 
@@ -101,7 +113,7 @@ def search_document(
                     page_number=page.page_number,
                     text=extract_snippet(page.text, set(matched)),
                     matched_terms=matched,
-                    score=len(matched),
+                    score=len(matched) + title_bonus,
                 )
             )
 

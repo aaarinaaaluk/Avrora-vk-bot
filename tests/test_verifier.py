@@ -163,3 +163,37 @@ def test_parse_model_json_rejects_multiple_verdicts():
     )
     with pytest.raises(ValueError, match="несколько JSON-объектов"):
         _parse_model_json(raw)
+
+def test_verifier_does_not_retain_unsupported_model_explanation():
+    from app.sources.text_search import SearchResult
+
+    class FakeLLM:
+        def generate(self, prompt):
+            return (
+                '{"status":"SUPPORTED","confidence":"HIGH",'
+                '"explanation":"Утверждение подтверждается источниками.",'
+                '"assessments":[]}'
+            )
+
+    source = SearchResult(
+        document_title="Клинические рекомендации",
+        source_url="https://example.org/guideline.pdf",
+        page_number=3,
+        text="Фрагмент найден, но его связь с утверждением не установлена.",
+        matched_terms=["утверждение", "источники"],
+        score=2,
+    )
+
+    result = verify_claim(
+        "Проверяемое медицинское утверждение",
+        search_results=[source],
+        llm_client=FakeLLM(),
+    )
+
+    assert result.status == VerificationStatus.INSUFFICIENT
+    assert result.confidence == ConfidenceLevel.LOW
+    assert "недостаточно данных" in result.explanation.lower()
+    assert "утверждение подтверждается источниками" not in result.explanation.lower()
+    assert len(result.evidence) == 1
+    assert result.evidence[0].supports_claim is None
+

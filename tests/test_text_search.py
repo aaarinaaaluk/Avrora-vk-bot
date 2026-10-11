@@ -73,8 +73,36 @@ def test_search_snippet_contains_matching_terms(sample_document):
     assert "почки" in results[0].text.lower()
 
 
-def test_search_score_is_only_keyword_overlap(sample_document):
+def test_search_score_falls_back_to_keyword_overlap_without_title_match(sample_document):
     results = search_document(sample_document, "киста почки")
 
     assert results
     assert results[0].score == len(results[0].matched_terms)
+
+def test_search_keeps_numeric_terms_and_boosts_title_match():
+    document = PDFDocument(
+        title="Сахарный диабет 1 типа у взрослых",
+        source_url="https://example.org/diabetes.pdf",
+        page_count=2,
+        pages=[
+            PDFPage(
+                page_number=1,
+                text="Сахарный диабет 1 типа требует наблюдения.",
+            ),
+            PDFPage(
+                page_number=2,
+                text="Диабет у взрослых требует наблюдения.",
+            ),
+        ],
+    )
+
+    results = search_document(
+        document,
+        "сахарный диабет 1 типа у взрослых",
+    )
+
+    assert results
+    assert results[0].page_number == 1
+    assert "1" in results[0].matched_terms
+    assert results[0].score > len(results[0].matched_terms)
+

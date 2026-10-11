@@ -308,7 +308,8 @@ def verify_claim(
         confidence = ConfidenceLevel.LOW
         explanation = (
             "Модель не смогла указать, какие из найденных источников поддерживают "
-            "утверждение или противоречат ему. " + explanation
+            "утверждение или противоречат ему. "
+            "Поэтому недостаточно данных для надёжного вывода."
         )
     elif status == VerificationStatus.SUPPORTED and True not in assessed_values:
         status = VerificationStatus.INSUFFICIENT
