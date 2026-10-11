@@ -1,5 +1,6 @@
 """Оркестрация поиска разрешённых источников и оценки GigaChat."""
 
+import logging
 import re
 
 from app.core.llm import create_llm_client
@@ -72,9 +73,23 @@ def check_claim(claim: str) -> VerificationResult:
     """Полная проверка: сбор источников, оценка модели, безопасный fallback."""
     client = create_llm_client()
     local_results, external_results = collect_evidence(claim, llm_client=client)
-    return verify_claim(
+    result = verify_claim(
         claim,
         search_results=local_results,
         external_evidence=external_results,
         llm_client=client,
     )
+
+    if client is not None:
+        usage = client.usage_snapshot()
+        if usage["calls"] > 0:
+            logging.getLogger(__name__).info(
+                "GigaChat usage: calls=%d prompt_tokens=%d "
+                "completion_tokens=%d total_tokens=%d",
+                usage["calls"],
+                usage["prompt_tokens"],
+                usage["completion_tokens"],
+                usage["total_tokens"],
+            )
+
+    return result

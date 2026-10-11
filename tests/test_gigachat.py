@@ -31,7 +31,12 @@ def test_gigachat_uses_oauth_and_reuses_access_token(monkeypatch):
                 "expires_at": int((time.time() + 1800) * 1000),
             })
         return FakeResponse({
-            "choices": [{"message": {"content": "ответ модели"}}]
+            "choices": [{"message": {"content": "ответ модели"}}],
+            "usage": {
+                "prompt_tokens": 2,
+                "completion_tokens": 1,
+                "total_tokens": 3,
+            },
         })
 
     monkeypatch.setattr("app.core.llm.urllib.request.urlopen", fake_urlopen)
@@ -48,6 +53,12 @@ def test_gigachat_uses_oauth_and_reuses_access_token(monkeypatch):
     assert completion_calls[0].get_header("Authorization") == "Bearer temporary-token"
     assert json.loads(completion_calls[0].data.decode("utf-8"))["model"] == "GigaChat"
     assert oauth_calls[0].get_header("Rquid")
+    assert client.usage_snapshot() == {
+        "calls": 2,
+        "prompt_tokens": 4,
+        "completion_tokens": 2,
+        "total_tokens": 6,
+    }
 
 
 def test_gigachat_can_build_authorization_key_from_client_credentials():

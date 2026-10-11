@@ -86,6 +86,18 @@ class GigaChatClient:
         self._access_token = ""
         self._token_expires_at = 0.0
         self._token_lock = Lock()
+        self._usage_lock = Lock()
+        self._usage = {
+            "calls": 0,
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0,
+        }
+
+    def usage_snapshot(self) -> dict[str, int]:
+        """Возвращает статистику расхода токенов без содержимого запросов."""
+        with self._usage_lock:
+            return dict(self._usage)
 
     @property
     def is_configured(self) -> bool:
@@ -200,6 +212,28 @@ class GigaChatClient:
             },
         )
         data = self._read_json(request, timeout=60)
+
+        usage = data.get("usage", {})
+        if not isinstance(usage, dict):
+            usage = {}
+
+        def token_count(name: str) -> int:
+            value = usage.get(name, 0)
+            if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+                return value
+            return 0
+
+        prompt_tokens = token_count("prompt_tokens")
+        completion_tokens = token_count("completion_tokens")
+        total_tokens = token_count("total_tokens")
+        if "total_tokens" not in usage:
+            total_tokens = prompt_tokens + completion_tokens
+
+        with self._usage_lock:
+            self._usage["calls"] += 1
+            self._usage["prompt_tokens"] += prompt_tokens
+            self._usage["completion_tokens"] += completion_tokens
+            self._usage["total_tokens"] += total_tokens
         try:
             content = data["choices"][0]["message"]["content"]
         except (KeyError, IndexError, TypeError):
