@@ -1,6 +1,7 @@
 """Проверка медицинского утверждения по найденным фрагментам источников."""
 
 import json
+import logging
 import re
 from enum import Enum
 from typing import Any
@@ -10,6 +11,9 @@ from pydantic import BaseModel, Field, ValidationError
 from app.core.llm import LLMClient
 from app.sources.evidence import EvidenceRecord
 from app.sources.text_search import SearchResult
+
+
+logger = logging.getLogger(__name__)
 
 
 class ClaimRequest(BaseModel):
@@ -86,18 +90,44 @@ def _from_external_result(result: EvidenceRecord) -> dict[str, Any]:
 
 
 def _parse_model_json(raw: str) -> _ModelVerdict:
-    """Принимает JSON-объект даже если модель обернула его в markdown fence."""
+    """Извлекает один однозначный JSON-вердикт из ответа модели."""
     text = raw.strip()
     text = re.sub(r"^```(?:json)?\s*", "", text, flags=re.IGNORECASE)
     text = re.sub(r"\s*```$", "", text)
-    try:
-        data = json.loads(text)
-    except json.JSONDecodeError:
-        start, end = text.find("{"), text.rfind("}")
-        if start < 0 or end <= start:
-            raise ValueError("Модель вернула ответ не в формате JSON.") from None
-        data = json.loads(text[start : end + 1])
-    return _ModelVerdict.model_validate(data)
+    decoder = json.JSONDecoder()
+    verdicts = []
+    invalid_structure_found = False
+    position = 0
+
+    while True:
+        start = text.find("{", position)
+        if start < 0:
+            break
+        try:
+            data, end = decoder.raw_decode(text, start)
+        except json.JSONDecodeError:
+            position = start + 1
+            continue
+
+        position = end
+        if not isinstance(data, dict):
+            continue
+        try:
+            verdicts.append(_ModelVerdict.model_validate(data))
+        except ValidationError:
+            invalid_structure_found = True
+
+    if len(verdicts) == 1:
+        return verdicts[0]
+    if len(verdicts) > 1:
+        raise ValueError(
+            "Модель вернула несколько JSON-объектов; ответ неоднозначен."
+        ) from None
+    if invalid_structure_found:
+        raise ValueError(
+            "Модель вернула JSON, не соответствующий ожидаемой структуре."
+        ) from None
+    raise ValueError("Модель вернула ответ не в формате JSON.") from None
 
 
 def _make_prompt(claim: str, records: list[dict[str, Any]]) -> str:
@@ -215,7 +245,8 @@ def verify_claim(
     try:
         raw = llm_client.generate(_make_prompt(claim, records))
         verdict = _parse_model_json(raw)
-    except (RuntimeError, ValueError, ValidationError, TypeError, KeyError, IndexError):
+    except (RuntimeError, ValueError, ValidationError, TypeError, KeyError, IndexError) as exc:
+        logger.warning("GigaChat assessment failed (%s): %s", type(exc).__name__, str(exc)[:200])
         return VerificationResult(
             claim=claim,
             status=VerificationStatus.INSUFFICIENT,
@@ -223,7 +254,8 @@ def verify_claim(
             explanation=_fallback_explanation(True, llm_error=True),
             evidence=_fallback_evidence(records),
         )
-    except Exception:
+    except Exception as exc:
+        logger.warning("GigaChat assessment failed (%s): %s", type(exc).__name__, str(exc)[:200])
         # Не допускаем, чтобы сбой сторонней модели ломал ответ VK-бота.
         return VerificationResult(
             claim=claim,

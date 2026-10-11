@@ -137,3 +137,29 @@ def test_verifier_rejects_model_verdict_with_unknown_source_id():
     assert result.status == VerificationStatus.INSUFFICIENT
     assert result.confidence == ConfidenceLevel.LOW
     assert result.evidence[0].supports_claim is None
+
+def test_parse_model_json_accepts_trailing_text():
+    from app.core.verifier import _parse_model_json
+
+    raw = (
+        '{"status":"INSUFFICIENT","confidence":"LOW",'
+        '"explanation":"Недостаточно данных","assessments":[]} '
+        'Пояснение после JSON'
+    )
+    result = _parse_model_json(raw)
+    assert result.status == VerificationStatus.INSUFFICIENT
+    assert result.confidence == ConfidenceLevel.LOW
+
+
+def test_parse_model_json_rejects_multiple_verdicts():
+    import pytest
+    from app.core.verifier import _parse_model_json
+
+    raw = (
+        '{"status":"INSUFFICIENT","confidence":"LOW",'
+        '"explanation":"Недостаточно данных","assessments":[]} '
+        '{"status":"SUPPORTED","confidence":"HIGH",'
+        '"explanation":"Подтверждено","assessments":[]}'
+    )
+    with pytest.raises(ValueError, match="несколько JSON-объектов"):
+        _parse_model_json(raw)
