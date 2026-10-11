@@ -9,7 +9,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DOCUMENTS_DIR = PROJECT_ROOT / "data" / "documents"
 
 SOURCE_URLS = {
-    "Недостаточность_витамина_ D_Рахит.pdf":
+    "Недостаточность_витамина_D_Рахит.pdf":
         "https://cr.minzdrav.gov.ru/view-cr/1059_1",
 }
 
@@ -28,10 +28,11 @@ def search_documents(
     results: list[SearchResult] = []
 
     for pdf_path in sorted(DOCUMENTS_DIR.glob("*.pdf")):
-        source_url = SOURCE_URLS.get(
-            pdf_path.name,
-            "",
-        )
+        source_url = SOURCE_URLS.get(pdf_path.name)
+        # Локальные документы участвуют в проверке только если источник
+        # явно зарегистрирован в allowlist выше. Неизвестный PDF пропускается.
+        if not source_url:
+            continue
 
         document = extract_pdf_text(
             pdf_path,

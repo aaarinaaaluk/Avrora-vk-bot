@@ -75,4 +75,65 @@ def test_verify_claim_preserves_search_results_without_confirming_claim():
     assert result.evidence[0].source_name == "Клинические рекомендации"
     assert "странице 12" in result.evidence[0].evidence_summary
     assert result.evidence[0].limitations
-   
+
+
+def test_verifier_uses_model_only_with_real_evidence_and_known_evidence_ids():
+    from app.sources.text_search import SearchResult
+
+    class FakeLLM:
+        def generate(self, prompt):
+            assert "Разрешённые доказательные фрагменты" in prompt
+            return (
+                '{"status":"SUPPORTED","confidence":"HIGH",'
+                '"explanation":"Фрагмент поддерживает утверждение.",'
+                '"assessments":[{"evidence_id":"local:1",'
+                '"supports_claim":true,"summary":"поддерживает",'
+                '"limitations":[]}]}'
+            )
+
+    source = SearchResult(
+        document_title="Клинические рекомендации",
+        source_url="https://cr.minzdrav.gov.ru/example",
+        page_number=5,
+        text="В документе содержится релевантная рекомендация.",
+        matched_terms=["документ", "рекомендация"],
+        score=2,
+    )
+    result = verify_claim(
+        "Проверяемое утверждение",
+        search_results=[source],
+        llm_client=FakeLLM(),
+    )
+
+    assert result.status == VerificationStatus.SUPPORTED
+    assert result.confidence == ConfidenceLevel.MEDIUM  # один фрагмент: не HIGH
+    assert result.evidence[0].supports_claim is True
+    assert result.evidence[0].source_url == source.source_url
+
+
+def test_verifier_rejects_model_verdict_with_unknown_source_id():
+    from app.sources.text_search import SearchResult
+
+    class FakeLLM:
+        def generate(self, prompt):
+            return (
+                '{"status":"SUPPORTED","confidence":"HIGH",'
+                '"explanation":"якобы подтверждено",'
+                '"assessments":[{"evidence_id":"invented-source",'
+                '"supports_claim":true,"summary":"фальшивый источник",'
+                '"limitations":[]}]}'
+            )
+
+    source = SearchResult(
+        document_title="Исходный документ",
+        source_url="https://example.org/source",
+        page_number=1,
+        text="Текст фрагмента.",
+        matched_terms=["фрагмент", "текст"],
+        score=2,
+    )
+    result = verify_claim("Утверждение", search_results=[source], llm_client=FakeLLM())
+
+    assert result.status == VerificationStatus.INSUFFICIENT
+    assert result.confidence == ConfidenceLevel.LOW
+    assert result.evidence[0].supports_claim is None

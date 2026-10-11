@@ -1,92 +1,98 @@
-import os
-from uuid import uuid4
-from app.sources.document_search import search_documents
+"""VK Callback API: приём сообщений и ответы фактчекера."""
 
+import json
 import urllib.parse
 import urllib.request
-import json
+from uuid import uuid4
 
 from fastapi import APIRouter, Request
 from fastapi.responses import PlainTextResponse
 
-from app.core.analyzer import analyze_query
-from app.core.verifier import verify_claim
+from app.config import VK_CONFIRMATION_CODE, VK_GROUP_TOKEN, VK_SECRET
+from app.core.analyzer import AnalysisRoute, analyze_query
+from app.core.fact_checker import check_claim
+from app.core.verifier import ConfidenceLevel, VerificationStatus
 
 router = APIRouter()
-
-VK_GROUP_TOKEN = os.getenv("VK_GROUP_TOKEN", "")
-VK_CONFIRMATION_CODE = os.getenv("VK_CONFIRMATION_CODE", "")
-VK_SECRET = os.getenv("VK_SECRET", "")
 VK_API_VERSION = "5.199"
+
+STATUS_LABELS = {
+    VerificationStatus.SUPPORTED: "есть поддержка в найденных источниках",
+    VerificationStatus.CONTRADICTED: "найденные источники противоречат утверждению",
+    VerificationStatus.INSUFFICIENT: "недостаточно доказательств",
+}
+CONFIDENCE_LABELS = {
+    ConfidenceLevel.HIGH: "высокая",
+    ConfidenceLevel.MEDIUM: "средняя",
+    ConfidenceLevel.LOW: "низкая",
+}
 
 
 def build_reply(text: str) -> str:
     claim = text.strip()
-
     if not claim:
         return (
             "Привет! Я AVRORA — медицинский фактчекер. "
-            "Пришли утверждение о питании или витаминах, "
-            "которое хочешь проверить."
+            "Пришли конкретное утверждение о здоровье или питании, "
+            "и я проверю его по разрешённым источникам."
         )
 
     analysis = analyze_query(claim)
-
     if analysis.safety_message:
         return (
             f"{analysis.safety_message}\n\n"
             "Я не ставлю диагнозы и не назначаю лечение."
         )
 
-    if analysis.route.value != "EVIDENCE_SEARCH":
+    if analysis.route != AnalysisRoute.EVIDENCE_SEARCH:
         return (
-            "Я помогаю разбирать конкретные утверждения о питании "
-            "и здоровье. Например: «Витамин C предотвращает простуду».\n\n"
-            "Пока у меня нет достаточной базы проверенных источников, "
-            "поэтому я не буду объявлять утверждение правдой или ложью."
+            "Я проверяю конкретные утверждения о здоровье и питании. "
+            "Например: «Витамин C предотвращает простуду».\n\n"
+            "Сформулируй сообщение как утверждение, которое можно сверить "
+            "с публикациями и рекомендациями."
         )
 
-    
-    search_results = search_documents(claim, limit=5)
-
-    # Не показываем слабые совпадения по одному общему слову.
-    relevant_results = [
-        item for item in search_results
-        if len(item.matched_terms) >= 2
-    ]
-
-    result = verify_claim(claim, search_results=relevant_results)
-
+    result = check_claim(claim)
+    status_label = STATUS_LABELS[result.status]
+    confidence_label = CONFIDENCE_LABELS[result.confidence]
     reply = (
         f"Утверждение: {result.claim}\n\n"
-        "Результат: недостаточно проверенных доказательств.\n"
+        f"Результат: {status_label}.\n"
+        f"Уверенность оценки: {confidence_label}.\n\n"
         f"{result.explanation}"
     )
 
-    if relevant_results:
-        reply += "\n\nНайденные фрагменты для изучения:"
-        for item in relevant_results[:3]:
+    if result.evidence:
+        reply += "\n\nИсточники, использованные при проверке:"
+        for index, item in enumerate(result.evidence[:5], start=1):
+            snippet = item.evidence_summary.strip().replace("\r", "")
+            if len(snippet) > 420:
+                snippet = snippet[:417] + "..."
             reply += (
-                f"\n\nИсточник: {item.document_title}"
-                f"\nСтраница: {item.page_number}"
+                f"\n\n{index}. {item.source_name}"
                 f"\nСсылка: {item.source_url}"
-                f"\nФрагмент: {item.text[:500]}"
+                f"\nФрагмент: {snippet}"
             )
+            if item.supports_claim is True:
+                reply += "\nОценка фрагмента: поддерживает утверждение"
+            elif item.supports_claim is False:
+                reply += "\nОценка фрагмента: противоречит утверждению"
     else:
-        reply += "\n\nВ локальных документах не найдено достаточно совпадений "
-        "для показа фрагментов."
+        reply += "\n\nПодходящих фрагментов в доступных подключённых источниках не найдено."
 
     reply += (
-        "\n\nВажно: совпадение слов не подтверждает и не опровергает "
-        "медицинское утверждение. Найденные фрагменты требуют проверки "
-        "контекста и качества доказательств."
+        "\n\nВажно: это предварительная автоматическая оценка, а не диагноз "
+        "и не назначение лечения. Google Fact Check показывает ранее опубликованные "
+        "проверки; PubMed часто предоставляет только аннотации. При противоречиях "
+        "или вопросах о личном здоровье обратитесь к медицинскому специалисту."
     )
+    # VK ограничивает размер сообщения. Сохраняем вывод и начало списка источников.
+    return reply[:3900]
 
-    return reply
 
 def send_vk_message(peer_id: int, message: str) -> None:
     if not VK_GROUP_TOKEN:
-        raise RuntimeError("Не настроена переменная VK_GROUP_TOKEN")
+        raise RuntimeError("Не настроена переменная VK_GROUP_TOKEN в .env")
 
     payload = urllib.parse.urlencode({
         "access_token": VK_GROUP_TOKEN,
@@ -101,15 +107,13 @@ def send_vk_message(peer_id: int, message: str) -> None:
         data=payload,
         method="POST",
     )
-
-    with urllib.request.urlopen(request, timeout=10) as response:
+    with urllib.request.urlopen(request, timeout=15) as response:
         result = json.loads(response.read().decode("utf-8"))
 
     if "error" in result:
         raise RuntimeError(
             f"VK API error: {result['error'].get('error_msg', 'unknown error')}"
         )
-
 
 
 @router.post("/vk/callback")
@@ -127,11 +131,8 @@ async def vk_callback(request: Request):
         message_data = payload.get("object", {}).get("message", {})
         text = message_data.get("text", "")
         peer_id = message_data.get("peer_id")
-
         if peer_id and text:
             reply = build_reply(text)
             send_vk_message(int(peer_id), reply)
 
     return PlainTextResponse("ok")
-
-    
