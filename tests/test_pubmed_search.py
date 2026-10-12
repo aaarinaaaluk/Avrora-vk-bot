@@ -155,3 +155,40 @@ def test_search_pubmed_filters_irrelevant_articles(monkeypatch):
 def test_meaningful_terms_preserves_negation():
     terms = pubmed_search._meaningful_terms("treatment does not reduce risk")
     assert "not" in terms
+
+
+def test_search_pubmed_retries_with_compact_query_when_first_query_has_no_ids(monkeypatch):
+    """A broad natural-language query must get a less restrictive retry."""
+    from urllib.parse import parse_qs, urlparse
+
+    calls = []
+
+    def fake_get_text(url: str, timeout: int = 8) -> str:
+        if "esearch.fcgi" in url:
+            params = parse_qs(urlparse(url).query)
+            query = params["term"][0]
+            calls.append(query)
+            if len(calls) == 1:
+                return json.dumps({"esearchresult": {"idlist": []}})
+            return json.dumps({"esearchresult": {"idlist": ["2222"]}})
+        if "efetch.fcgi" in url:
+            return """
+            <PubmedArticleSet><PubmedArticle>
+              <MedlineCitation><PMID>2222</PMID><Article>
+                <ArticleTitle>Mediterranean diet and cardiovascular disease</ArticleTitle>
+                <Abstract><AbstractText>A Mediterranean dietary pattern is associated with lower cardiovascular disease risk.</AbstractText></Abstract>
+              </Article></MedlineCitation>
+            </PubmedArticle></PubmedArticleSet>
+            """
+        raise AssertionError(f"Unexpected URL: {url}")
+
+    monkeypatch.setattr(pubmed_search, "_get_text", fake_get_text)
+    results = pubmed_search.search_pubmed(
+        "Mediterranean diet reduces risk of cardiovascular disease",
+        limit=3,
+    )
+
+    assert len(calls) >= 2
+    assert calls[0] == "Mediterranean diet reduces risk of cardiovascular disease"
+    assert calls[1] != calls[0]
+    assert [result.evidence_id for result in results] == ["pubmed:2222"]
