@@ -3,3 +3,7 @@ __pycache__/
 .venv/
 .env
 .pytest_cache/
+
+# Python bytecode
+__pycache__/
+*.py[cod]

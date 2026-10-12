@@ -5,7 +5,14 @@
     "title": "Недостаточность витамина D. Рахит",
     "source_id": "ru_moh_clinical_guidelines",
     "source_url": "https://cr.minzdrav.gov.ru/view-cr/1059_1",
-    "enabled": true
+    "enabled": true,
+    "language": "ru",
+    "search_keywords": [
+      "витамин d",
+      "витамина d",
+      "рахит",
+      "недостаточность витамина"
+    ]
   },
   {
     "id": "ru_moh_flu_adults_749_2",
@@ -16,7 +23,14 @@
     "source_url": "https://cr.minzdrav.gov.ru/view-cr/749_2",
     "approval_year": 2025,
     "review_by_year": 2027,
-    "enabled": true
+    "enabled": true,
+    "language": "ru",
+    "search_keywords": [
+      "грипп",
+      "инфлюэнца",
+      "вирус гриппа",
+      "противовирусный"
+    ]
   },
   {
     "id": "ru_moh_cr_536",
@@ -37,7 +51,15 @@
     "published_at": "2024-11-27T12:50:45",
     "age_category": "Взрослые, дети",
     "registry_status": 0,
-    "npc_approved": true
+    "npc_approved": true,
+    "language": "ru",
+    "search_keywords": [
+      "витамин b12",
+      "b12",
+      "дефицит b12",
+      "анемия",
+      "кобаламин"
+    ]
   },
   {
     "id": "ru_moh_cr_540",
@@ -58,7 +80,14 @@
     "published_at": "2024-11-27T10:42:07",
     "age_category": "Взрослые, дети",
     "registry_status": 0,
-    "npc_approved": true
+    "npc_approved": true,
+    "language": "ru",
+    "search_keywords": [
+      "фолиевая кислота",
+      "фолат",
+      "фолиеводефицит",
+      "анемия"
+    ]
   },
   {
     "id": "ru_moh_cr_669",
@@ -79,7 +108,14 @@
     "published_at": "2024-10-23T00:00:00",
     "age_category": "Взрослые, дети",
     "registry_status": 0,
-    "npc_approved": true
+    "npc_approved": true,
+    "language": "ru",
+    "search_keywords": [
+      "железодефицит",
+      "железо",
+      "ферритин",
+      "анемия"
+    ]
   },
   {
     "id": "ru_moh_cr_290",
@@ -100,7 +136,15 @@
     "published_at": "2022-07-12T18:39:52",
     "age_category": "Взрослые",
     "registry_status": 0,
-    "npc_approved": true
+    "npc_approved": true,
+    "language": "ru",
+    "search_keywords": [
+      "диабет",
+      "сахарный диабет",
+      "глюкоза",
+      "инсулин",
+      "гликированный гемоглобин"
+    ]
   },
   {
     "id": "ru_moh_cr_286",
@@ -121,7 +165,14 @@
     "published_at": "2026-03-02T17:01:21",
     "age_category": "Взрослые",
     "registry_status": 0,
-    "npc_approved": true
+    "npc_approved": true,
+    "language": "ru",
+    "search_keywords": [
+      "диабет 1 типа",
+      "сахарный диабет",
+      "глюкоза",
+      "инсулин"
+    ]
   },
   {
     "id": "ru_moh_cr_28",
@@ -142,7 +193,14 @@
     "published_at": "2024-12-25T00:00:00",
     "age_category": "Взрослые",
     "registry_status": 0,
-    "npc_approved": true
+    "npc_approved": true,
+    "language": "ru",
+    "search_keywords": [
+      "ожирение",
+      "избыточный вес",
+      "индекс массы тела",
+      "масса тела"
+    ]
   },
   {
     "id": "ru_moh_cr_229",
@@ -163,7 +221,14 @@
     "published_at": "2024-07-23T15:30:10",
     "age_category": "Дети",
     "registry_status": 0,
-    "npc_approved": true
+    "npc_approved": true,
+    "language": "ru",
+    "search_keywords": [
+      "ожирение",
+      "избыточный вес",
+      "детское ожирение",
+      "масса тела у детей"
+    ]
   },
   {
     "id": "ru_moh_cr_404",
@@ -184,112 +249,13 @@
     "published_at": "2026-06-30T16:31:01",
     "age_category": "Дети",
     "registry_status": 0,
-    "npc_approved": true
-  },
-  {
-    "id": "who_nutrition_carbohydrate_2023",
-    "filename": "WHO_carbohydrate_intake_2023.pdf",
-    "title": "Carbohydrate intake for adults and children: WHO guideline",
-    "source_url": "https://www.who.int/publications/i/9789240073593",
-    "published_at": "2023-07-17",
-    "page_count": 100,
-    "sha256": "81548c804ebf031aa06a71f762c4ed72f680d4cb2caba44b011459fe5c841cd0",
-    "source_id": "who",
-    "enabled": true,
-    "review_status": "official_metadata_verified",
-    "document_type": "WHO guideline",
-    "language": "en"
-  },
-  {
-    "id": "who_nutrition_total_fat_2023",
-    "filename": "WHO_total_fat_intake_2023.pdf",
-    "title": "Total fat intake for the prevention of unhealthy weight gain in adults and children: WHO guideline",
-    "source_url": "https://www.who.int/publications/i/item/9789240073654",
-    "published_at": "2023-07-17",
-    "page_count": 66,
-    "sha256": "a9f12218be0b1720c9be4f0dee79c2dbdcbd13fb44cd3e0d751bf04b5fa63381",
-    "source_id": "who",
-    "enabled": true,
-    "review_status": "official_metadata_verified",
-    "document_type": "WHO guideline",
-    "language": "en"
-  },
-  {
-    "id": "who_nutrition_saturated_trans_fats_2023",
-    "filename": "WHO_saturated_trans_fatty_acids_2023.pdf",
-    "title": "Saturated fatty acid and trans-fatty acid intake for adults and children: WHO guideline",
-    "source_url": "https://www.who.int/publications/i/item/9789240073630",
-    "published_at": "2023-07-17",
-    "page_count": 134,
-    "sha256": "767c24d20e90357e71831e3e19813f79c84457c8a24ddbca931237a58bd3d503",
-    "source_id": "who",
-    "enabled": true,
-    "review_status": "official_metadata_verified",
-    "document_type": "WHO guideline",
-    "language": "en"
-  },
-  {
-    "id": "who_nutrition_complementary_feeding_2023",
-    "filename": "WHO_complementary_feeding_2023.pdf",
-    "title": "WHO guideline for complementary feeding of infants and young children 6–23 months of age",
-    "source_url": "https://www.who.int/publications/i/item/9789240081864",
-    "published_at": "2023-10-16",
-    "page_count": 96,
-    "sha256": "a75cc2c922a2f1c0c8ba7b2bc2ab17cb1981ae6ae9e98da80f81fb1a37c289bf",
-    "source_id": "who",
-    "enabled": true,
-    "review_status": "official_metadata_verified",
-    "document_type": "WHO guideline",
-    "language": "en"
-  },
-  {
-    "id": "who_nutrition_wasting_children_2023",
-    "filename": "WHO_wasting_nutritional_oedema_2023.pdf",
-    "title": "WHO guideline on the prevention and management of wasting and nutritional oedema (acute malnutrition) in infants and children under 5 years",
-    "source_url": "https://www.who.int/publications/i/item/9789240082830",
-    "published_at": "2023-12-29",
-    "page_count": 208,
-    "sha256": "645026e45063f99be03ff6f2527533e6321877d28b4a49825af4fd6080930ca4",
-    "source_id": "who",
-    "enabled": true,
-    "review_status": "official_metadata_verified",
-    "document_type": "WHO guideline",
-    "language": "en"
-  },
-  {
-    "id": "who_nutrition_oil_fortification_2025",
-    "filename": "WHO_oil_fortification_vitamins_AD_2025.pdf",
-    "title": "WHO guideline on fortification of edible oils and fats with vitamins A and D for public health",
-    "source_url": "https://www.who.int/publications/i/item/9789240115101",
-    "published_at": "2025-10-24",
-    "page_count": 90,
-    "sha256": "8598f7097cc09acf1b262a7c2d57bb4726f5e8f3b0c18bc1492ea5c57212007d",
-    "source_id": "who",
-    "enabled": true,
-    "review_status": "official_metadata_verified",
-    "document_type": "WHO guideline",
-    "language": "en"
-  },
-  {
-    "id": "who_nutrition_salt_substitutes_2025",
-    "filename": "WHO_lower_sodium_salt_substitutes_2025.pdf",
-    "title": "Use of lower-sodium salt substitutes: WHO guideline",
-    "source_url": "https://www.who.int/publications/i/item/9789240105591",
-    "published_at": "2025-01-27",
-    "page_count": 82,
-    "sha256": "e7111969908bbf588c20b457b6f5f26ce16e6d9e023e7e179d8a9c1b54a318a0",
-    "source_id": "who",
-    "enabled": true,
-    "review_status": "official_metadata_verified",
-    "document_type": "WHO guideline",
-    "language": "en"
-  },
-  {
-    "id": "who_nutrition_sugars_intake_2015",
-    "filename": "WHO_sugars_intake_2015_en.pdf",
-    "title": "Guideline: Sugars intake for adults and children",
-    "source_id": "who",
-    "source_url": "https://www.who.int/publications/i/item/9789241549028",
-    "enabled": true
+    "npc_approved": true,
+    "language": "ru",
+    "search_keywords": [
+      "целиакия",
+      "глютен",
+      "глютеновая болезнь",
+      "безглютеновая диета"
+    ]
   }
 ]

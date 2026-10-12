@@ -25,3 +25,17 @@ def test_personal_medical():
 def test_empty_text():
     result = classify_intent("")
     assert result.intent == IntentType.UNCLEAR
+
+def test_personal_medical_question_about_mother():
+    result = classify_intent("У моей мамы диабет 2 типа. Какой рацион ей назначить?")
+    assert result.intent == IntentType.PERSONAL_MEDICAL
+
+
+def test_personal_medical_question_about_child():
+    result = classify_intent("У моего ребёнка температура, что ему дать?")
+    assert result.intent == IntentType.PERSONAL_MEDICAL
+
+
+def test_general_claim_about_children_is_not_automatically_personal():
+    result = classify_intent("Ожирение у детей связано с питанием")
+    assert result.intent == IntentType.FACT_CLAIM

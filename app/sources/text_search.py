@@ -69,7 +69,7 @@ def extract_snippet(text: str, terms: set[str], window: int = 220) -> str:
 
 def _recommendation_phrase_bonus(text: str) -> int:
     """Повышает рейтинг страниц с явной формулировкой рекомендации."""
-    normalized = re.sub(r"\\s+", " ", text.lower())
+    normalized = re.sub(r"\s+", " ", text.lower())
     phrases = (
         "less than 10% of total energy",
         "below 10% of total energy",

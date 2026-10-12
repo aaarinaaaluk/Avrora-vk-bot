@@ -106,3 +106,11 @@ def test_search_keeps_numeric_terms_and_boosts_title_match():
     assert "1" in results[0].matched_terms
     assert results[0].score > len(results[0].matched_terms)
 
+
+
+def test_recommendation_phrase_bonus_normalizes_whitespace():
+    from app.sources.text_search import _recommendation_phrase_bonus
+
+    assert _recommendation_phrase_bonus(
+        "ВОЗ рекомендует ограничивать потребление свободных сахаров"
+    ) == 30

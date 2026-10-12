@@ -42,3 +42,11 @@ def test_personal_medical_route_has_safety_message():
 
     assert result.route == AnalysisRoute.CLINICIAN_GUIDANCE
     assert result.safety_message
+
+
+def test_personal_medical_question_about_relative_routes_to_clinician():
+    result = analyze_query("У моей мамы диабет 2 типа. Какой рацион ей назначить?")
+    assert result.intent == IntentType.PERSONAL_MEDICAL
+    assert result.route == AnalysisRoute.CLINICIAN_GUIDANCE
+    assert result.candidate_sources == []
+    assert "другого конкретного человека" in result.safety_message
