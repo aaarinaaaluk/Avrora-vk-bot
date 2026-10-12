@@ -283,5 +283,13 @@
     "review_status": "official_metadata_verified",
     "document_type": "WHO guideline",
     "language": "en"
+  },
+  {
+    "id": "who_nutrition_sugars_intake_2015",
+    "filename": "WHO_sugars_intake_2015_en.pdf",
+    "title": "Guideline: Sugars intake for adults and children",
+    "source_id": "who",
+    "source_url": "https://www.who.int/publications/i/item/9789241549028",
+    "enabled": true
   }
 ]

@@ -9,6 +9,7 @@ from app.sources.document_search import search_documents
 from app.sources.evidence import EvidenceRecord
 from app.sources.factcheck_search import search_fact_checks
 from app.sources.pubmed_search import search_pubmed
+from app.sources.who_search import search_who_pages
 
 
 def _pubmed_query_from_claim(claim: str, llm_client) -> str:
@@ -49,6 +50,10 @@ def collect_evidence(claim: str, llm_client=None) -> tuple[list, list[EvidenceRe
 
     translated_query = _pubmed_query_from_claim(claim, llm_client)
     external: list[EvidenceRecord] = []
+    try:
+        external.extend(search_who_pages(claim, limit=2))
+    except Exception:
+        pass
     try:
         external.extend(search_pubmed(translated_query, limit=3))
     except Exception:

@@ -66,6 +66,22 @@ def extract_snippet(text: str, terms: set[str], window: int = 220) -> str:
     return snippet
 
 
+
+def _recommendation_phrase_bonus(text: str) -> int:
+    """Повышает рейтинг страниц с явной формулировкой рекомендации."""
+    normalized = re.sub(r"\\s+", " ", text.lower())
+    phrases = (
+        "less than 10% of total energy",
+        "below 10% of total energy",
+        "less than 5% of total energy",
+        "recommends a reduced intake of free sugars",
+        "recommends reducing the intake of free sugars",
+        "менее 10% суточной энергии",
+        "ограничивать потребление свободных сахаров",
+    )
+    return 30 if any(phrase in normalized for phrase in phrases) else 0
+
+
 def search_document(
     document: PDFDocument,
     query: str,
@@ -113,7 +129,7 @@ def search_document(
                     page_number=page.page_number,
                     text=extract_snippet(page.text, set(matched)),
                     matched_terms=matched,
-                    score=len(matched) + title_bonus,
+                    score=len(matched) + title_bonus + _recommendation_phrase_bonus(page.text),
                 )
             )
 

@@ -91,38 +91,46 @@ def build_reply(text: str) -> str:
     result = check_claim(claim)
     status_label = STATUS_LABELS[result.status]
     confidence_label = CONFIDENCE_LABELS[result.confidence]
+
+    claim_preview = " ".join(result.claim.split())
+    if len(claim_preview) > 240:
+        claim_preview = claim_preview[:237] + "..."
+
+    explanation = " ".join(result.explanation.split()).strip()
+    if not explanation:
+        explanation = "Подробное объяснение автоматически сформировать не удалось."
+
     reply = (
-        f"Утверждение: {result.claim}\n\n"
-        f"Результат: {status_label}.\n"
-        f"Уверенность оценки: {confidence_label}.\n\n"
-        f"{result.explanation}"
+        f"«{claim_preview}» — {status_label}. "
+        f"Уверенность: {confidence_label}. {explanation}"
     )
 
     if result.evidence:
-        reply += "\n\nИсточники, использованные при проверке:"
-        for index, item in enumerate(result.evidence[:5], start=1):
-            snippet = item.evidence_summary.strip().replace("\r", "")
-            if len(snippet) > 420:
-                snippet = snippet[:417] + "..."
-            reply += (
-                f"\n\n{index}. {item.source_name}"
-                f"\nСсылка: {item.source_url}"
-                f"\nФрагмент: {snippet}"
-            )
-            if item.supports_claim is True:
-                reply += "\nОценка фрагмента: поддерживает утверждение"
-            elif item.supports_claim is False:
-                reply += "\nОценка фрагмента: противоречит утверждению"
+        reply += "\n\nИсточники:"
+        seen_urls = set()
+        source_index = 0
+
+        for item in result.evidence:
+            url = (item.source_url or "").strip()
+            if not url.startswith("https://") or url in seen_urls:
+                continue
+
+            seen_urls.add(url)
+            title = " ".join(item.source_name.split()).strip() or "Источник"
+            if len(title) > 120:
+                title = title[:117] + "..."
+
+            source_index += 1
+            reply += f"\n{source_index}. {title}: {url}"
+
+            if source_index >= 5:
+                break
     else:
-        reply += "\n\nПодходящих фрагментов в доступных подключённых источниках не найдено."
+        reply += "\n\nПодходящие источники не найдены."
 
     reply += (
-        "\n\nВажно: это предварительная автоматическая оценка, а не диагноз "
-        "и не назначение лечения. Google Fact Check показывает ранее опубликованные "
-        "проверки; PubMed часто предоставляет только аннотации. При противоречиях "
-        "или вопросах о личном здоровье обратитесь к медицинскому специалисту."
+        "\n\nАвтоматическая проверка не заменяет медицинскую консультацию."
     )
-    # VK ограничивает размер сообщения. Сохраняем вывод и начало списка источников.
     return reply[:3900]
 
 
