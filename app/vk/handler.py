@@ -1,11 +1,15 @@
 """VK Callback API: приём сообщений и ответы фактчекера."""
 
 import json
+import logging
+import time
 import urllib.parse
 import urllib.request
+from collections import OrderedDict
+from threading import Lock
 from uuid import uuid4
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, BackgroundTasks, Request
 from fastapi.responses import PlainTextResponse
 
 from app.config import VK_CONFIRMATION_CODE, VK_GROUP_TOKEN, VK_SECRET
@@ -14,6 +18,38 @@ from app.core.fact_checker import check_claim
 from app.core.verifier import ConfidenceLevel, VerificationStatus
 
 router = APIRouter()
+
+logger = logging.getLogger(__name__)
+
+# Защита от повторных Callback-событий для одного процесса приложения.
+_EVENT_TTL_SECONDS = 6 * 60 * 60
+_EVENT_CACHE_LIMIT = 10000
+_seen_events: OrderedDict[str, float] = OrderedDict()
+_event_lock = Lock()
+
+
+def _claim_event(event_id: str) -> bool:
+    """Атомарно отмечает новое событие; повторное событие возвращает False."""
+    now = time.monotonic()
+
+    with _event_lock:
+        while _seen_events:
+            oldest_id, received_at = next(iter(_seen_events.items()))
+            if now - received_at <= _EVENT_TTL_SECONDS:
+                break
+            _seen_events.popitem(last=False)
+
+        if event_id in _seen_events:
+            return False
+
+        _seen_events[event_id] = now
+
+        while len(_seen_events) > _EVENT_CACHE_LIMIT:
+            _seen_events.popitem(last=False)
+
+        return True
+
+
 VK_API_VERSION = "5.199"
 
 STATUS_LABELS = {
@@ -90,34 +126,96 @@ def build_reply(text: str) -> str:
     return reply[:3900]
 
 
-def send_vk_message(peer_id: int, message: str) -> None:
+def _event_random_id(event_id: str, peer_id: int) -> int:
+    """Возвращает стабильный положительный ID для отправки одного события."""
+    import hashlib
+
+    digest = hashlib.sha256(
+        f"{event_id}:{peer_id}".encode("utf-8")
+    ).digest()
+    return (int.from_bytes(digest[:4], "big") & 0x7FFFFFFF) or 1
+
+
+def send_vk_message(
+    peer_id: int,
+    message: str,
+    *,
+    random_id: int | None = None,
+) -> None:
     if not VK_GROUP_TOKEN:
         raise RuntimeError("Не настроена переменная VK_GROUP_TOKEN в .env")
+
+    # Один random_id сохраняется при обеих попытках: тайм-аут не доказывает,
+    # что VK не успел принять сообщение.
+    if random_id is None:
+        random_id = (uuid4().int % (2**31)) or 1
 
     payload = urllib.parse.urlencode({
         "access_token": VK_GROUP_TOKEN,
         "v": VK_API_VERSION,
         "peer_id": peer_id,
-        "random_id": uuid4().int % (2**31),
+        "random_id": random_id,
         "message": message,
     }).encode("utf-8")
 
-    request = urllib.request.Request(
-        "https://api.vk.com/method/messages.send",
-        data=payload,
-        method="POST",
-    )
-    with urllib.request.urlopen(request, timeout=15) as response:
-        result = json.loads(response.read().decode("utf-8"))
-
-    if "error" in result:
-        raise RuntimeError(
-            f"VK API error: {result['error'].get('error_msg', 'unknown error')}"
+    for attempt in range(2):
+        request = urllib.request.Request(
+            "https://api.vk.com/method/messages.send",
+            data=payload,
+            method="POST",
         )
+
+        try:
+            with urllib.request.urlopen(request, timeout=30) as response:
+                result = json.loads(response.read().decode("utf-8"))
+        except (TimeoutError, urllib.error.URLError) as exc:
+            is_timeout = (
+                isinstance(exc, TimeoutError)
+                or (
+                    isinstance(exc, urllib.error.URLError)
+                    and isinstance(exc.reason, TimeoutError)
+                )
+            )
+            if attempt == 0 and is_timeout:
+                logger.warning(
+                    "VK messages.send timed out; retrying once "
+                    "with the same random_id=%s",
+                    random_id,
+                )
+                continue
+            raise
+
+        if "error" in result:
+            error = result["error"]
+            raise RuntimeError(
+                f"VK API error {error.get('error_code', 'unknown')}: "
+                f"{error.get('error_msg', 'unknown error')}"
+            )
+        return
+
+def _process_message(peer_id: int, text: str, event_id: str | None) -> None:
+    """Долгая проверка выполняется после подтверждения Callback."""
+    logger.info("Started VK message processing: event_id=%s peer_id=%s",
+                event_id or "missing", peer_id)
+    try:
+        reply = build_reply(text)
+        stable_random_id = (
+            _event_random_id(event_id, peer_id) if event_id else None
+        )
+        send_vk_message(peer_id, reply, random_id=stable_random_id)
+        logger.info("VK reply sent: event_id=%s peer_id=%s",
+                    event_id or "missing", peer_id)
+    except Exception:
+        # Фоновая ошибка не должна ронять обработчик Callback.
+        logger.exception("VK message processing failed: event_id=%s peer_id=%s",
+                         event_id or "missing", peer_id)
 
 
 @router.post("/vk/callback")
-async def vk_callback(request: Request):
+async def vk_callback(
+    request: Request,
+    background_tasks: BackgroundTasks,
+):
     payload = await request.json()
     event_type = payload.get("type")
 
@@ -131,8 +229,35 @@ async def vk_callback(request: Request):
         message_data = payload.get("object", {}).get("message", {})
         text = message_data.get("text", "")
         peer_id = message_data.get("peer_id")
-        if peer_id and text:
-            reply = build_reply(text)
-            send_vk_message(int(peer_id), reply)
 
-    return PlainTextResponse("ok")
+        if peer_id and isinstance(text, str) and text:
+            try:
+                peer_id = int(peer_id)
+            except (TypeError, ValueError):
+                logger.warning("Invalid peer_id in VK Callback")
+                return PlainTextResponse("ok")
+
+            raw_event_id = payload.get("event_id")
+            event_id = (
+                str(raw_event_id)
+                if raw_event_id is not None and str(raw_event_id).strip()
+                else None
+            )
+
+            if event_id is not None:
+                if not _claim_event(event_id):
+                    logger.info("Duplicate VK event ignored: event_id=%s",
+                                event_id)
+                    return PlainTextResponse("ok")
+            else:
+                # Без event_id невозможно надёжно отличить повтор от нового сообщения.
+                logger.warning(
+                    "VK message_new without event_id; deduplication unavailable"
+                )
+
+            background_tasks.add_task(
+                _process_message, peer_id, text, event_id
+            )
+
+    # FastAPI запускает BackgroundTasks после отправки ответа клиенту.
+    return PlainTextResponse("ok", background=background_tasks)
