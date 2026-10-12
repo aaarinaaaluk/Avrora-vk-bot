@@ -14,6 +14,26 @@ BASE_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
 USER_AGENT = "AVRORA-medical-fact-checker/1.0 (evidence retrieval)"
 
 
+_STOP_WORDS = {
+    "the", "and", "for", "from", "with", "that", "this", "into",
+    "are", "was", "were", "been", "being", "has", "have", "had",
+    "but", "about", "after", "before", "than", "then",
+    "one", "once", "time", "test", "message", "response", "respond",
+    "reply", "please", "check", "claim", "statement", "avrora",
+    "его", "это", "как", "для", "или", "при", "что", "этот",
+}
+
+
+def _meaningful_terms(text: str) -> set[str]:
+    """Выделяет содержательные слова для предварительной проверки релевантности."""
+    tokens = re.findall(r"[^\W_]+", text.casefold(), flags=re.UNICODE)
+    return {
+        token
+        for token in tokens
+        if (len(token) >= 3 or token.isdigit()) and token not in _STOP_WORDS
+    }
+
+
 def _get_text(url: str, timeout: int = 8) -> str:
     headers = {"User-Agent": USER_AGENT, "Accept": "application/json, application/xml"}
     request = urllib.request.Request(url, headers=headers)
@@ -25,6 +45,10 @@ def search_pubmed(query: str, limit: int = 3) -> list[EvidenceRecord]:
     """Возвращает заголовки и аннотации из PubMed; сбой сети не ломает бота."""
     query = query.strip()[:500]
     if not query or limit < 1:
+        return []
+
+    query_terms = _meaningful_terms(query)
+    if not query_terms:
         return []
 
     params: dict[str, str] = {
@@ -70,6 +94,11 @@ def search_pubmed(query: str, limit: int = 3) -> list[EvidenceRecord]:
                 abstract_parts.append(f"{label}: {text}" if label else text)
         abstract = " ".join(abstract_parts).strip()
         if not pmid or not (title or abstract):
+            continue
+
+        article_terms = _meaningful_terms(f"{title} {abstract}")
+        minimum_overlap = min(2, len(query_terms))
+        if len(query_terms.intersection(article_terms)) < minimum_overlap:
             continue
 
         date_node = article.find(".//PubDate")
