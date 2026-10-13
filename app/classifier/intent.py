@@ -50,6 +50,34 @@ _MEDICAL_CONTEXT_MARKERS = (
 )
 
 
+_RISKY_TREATMENT_ACTION = re.compile(
+    r"\b(?:самостоятельно\s+)?(?:отмен\w*|прекращ\w*|"
+    r"перестать\s+принимать|измен\w*\s+доз\w*|"
+    r"сниз\w*\s+доз\w*|повыс\w*\s+доз\w*)\b",
+    re.IGNORECASE,
+)
+_RISKY_TREATMENT_OBJECT_MARKERS = (
+    "лекарств", "препарат", "таблет", "инсулин", "доз", "лечение", "приём", "прием",
+)
+_RISKY_TREATMENT_QUESTION_MARKERS = (
+    "правда ли", "действительно ли", "можно ли", "можно ", "стоит ли",
+    "допустимо ли", "разрешено ли", "нужно ли",
+)
+
+
+def is_risky_treatment_question(text: str) -> bool:
+    """Recognize questions that could encourage unsupervised treatment changes."""
+    normalized = text.casefold().strip()
+    is_question = normalized.endswith("?") or any(
+        marker in normalized for marker in _RISKY_TREATMENT_QUESTION_MARKERS
+    )
+    has_action = bool(_RISKY_TREATMENT_ACTION.search(normalized))
+    has_treatment_object = any(
+        marker in normalized for marker in _RISKY_TREATMENT_OBJECT_MARKERS
+    )
+    return is_question and has_action and has_treatment_object
+
+
 def _is_personal_medical(text: str) -> bool:
     if any(marker in text for marker in _DIRECT_PERSONAL_MARKERS):
         return True
@@ -71,6 +99,16 @@ def classify_intent(text: str) -> IntentResult:
             text=text,
             intent=IntentType.UNCLEAR,
             explanation="Пользователь не ввёл текст.",
+        )
+
+    if is_risky_treatment_question(normalized):
+        return IntentResult(
+            text=text,
+            intent=IntentType.PERSONAL_MEDICAL,
+            explanation=(
+                "Вопрос касается самостоятельной отмены или изменения назначенного лечения; "
+                "нужен безопасный ответ с направлением к медицинскому специалисту."
+            ),
         )
 
     if _is_personal_medical(normalized):

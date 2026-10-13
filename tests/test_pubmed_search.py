@@ -192,3 +192,137 @@ def test_search_pubmed_retries_with_compact_query_when_first_query_has_no_ids(mo
     assert calls[0] == "Mediterranean diet reduces risk of cardiovascular disease"
     assert calls[1] != calls[0]
     assert [result.evidence_id for result in results] == ["pubmed:2222"]
+
+
+def test_pubmed_search_rejects_article_matching_only_generic_topic_words(monkeypatch):
+    """A related word such as 'Mediterranean' must not hide outcome mismatch."""
+    xml = """
+    <PubmedArticleSet>
+      <PubmedArticle><MedlineCitation><PMID>1001</PMID><Article>
+        <ArticleTitle>The role of the Mediterranean diet in cognitive decline</ArticleTitle>
+        <Abstract><AbstractText>The Mediterranean diet may be linked with dementia risk.</AbstractText></Abstract>
+      </Article></MedlineCitation></PubmedArticle>
+      <PubmedArticle><MedlineCitation><PMID>1002</PMID><Article>
+        <ArticleTitle>Mediterranean diet and cardiovascular disease prevention</ArticleTitle>
+        <Abstract><AbstractText>This review evaluates cardiovascular events and mortality.</AbstractText></Abstract>
+      </Article></MedlineCitation></PubmedArticle>
+    </PubmedArticleSet>
+    """
+
+    def fake_get_text(url: str, timeout: int = 8) -> str:
+        if "esearch.fcgi" in url:
+            return json.dumps({"esearchresult": {"idlist": ["1001", "1002"]}})
+        return xml
+
+    monkeypatch.setattr(pubmed_search, "_get_text", fake_get_text)
+    results = pubmed_search.search_pubmed("Mediterranean diet cardiovascular disease", limit=3)
+
+    assert [result.evidence_id for result in results] == ["pubmed:1002"]
+
+
+def test_search_pubmed_with_status_distinguishes_network_failure_from_empty_results(monkeypatch):
+    def fake_get_text(url: str, timeout: int = 8) -> str:
+        raise urllib.error.URLError("network unavailable")
+
+    monkeypatch.setattr(pubmed_search, "_get_text", fake_get_text)
+    outcome = pubmed_search.search_pubmed_with_status("vitamin D bone health", limit=3)
+
+    assert outcome.records == []
+    assert outcome.status == "unavailable"
+    assert outcome.failed_attempts > 0
+
+
+def test_search_pubmed_with_status_reports_successful_empty_search(monkeypatch):
+    def fake_get_text(url: str, timeout: int = 8) -> str:
+        return json.dumps({"esearchresult": {"idlist": []}})
+
+    monkeypatch.setattr(pubmed_search, "_get_text", fake_get_text)
+    outcome = pubmed_search.search_pubmed_with_status("no matching article", limit=2)
+
+    assert outcome.records == []
+    assert outcome.status == "no_results"
+
+
+
+def test_get_text_retries_http_429_with_retry_after(monkeypatch):
+    """Transient rate limits should be retried with a bounded pause."""
+    from email.message import Message
+    from io import BytesIO
+
+    calls = []
+    delays = []
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, traceback):
+            return False
+
+        def read(self):
+            return b"ok"
+
+    def fake_urlopen(request, timeout=8):
+        calls.append(request.full_url)
+        if len(calls) == 1:
+            headers = Message()
+            headers["Retry-After"] = "1"
+            raise urllib.error.HTTPError(
+                request.full_url, 429, "Too Many Requests", headers, BytesIO(b"limited")
+            )
+        return FakeResponse()
+
+    monkeypatch.setattr(pubmed_search.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(pubmed_search, "_wait_for_request_slot", lambda: None)
+    monkeypatch.setattr(pubmed_search.time, "sleep", delays.append)
+
+    assert pubmed_search._get_text("https://example.invalid/test") == "ok"
+    assert len(calls) == 2
+    assert delays == [1.0]
+
+
+def test_get_text_does_not_retry_nontransient_http_error(monkeypatch):
+    """Bad requests should fail immediately instead of wasting more API calls."""
+    calls = []
+
+    def fake_urlopen(request, timeout=8):
+        calls.append(request.full_url)
+        raise urllib.error.HTTPError(
+            request.full_url, 400, "Bad Request", {}, None
+        )
+
+    monkeypatch.setattr(pubmed_search.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(pubmed_search, "_wait_for_request_slot", lambda: None)
+
+    try:
+        pubmed_search._get_text("https://example.invalid/test")
+    except urllib.error.HTTPError as error:
+        assert error.code == 400
+    else:
+        raise AssertionError("Expected HTTPError 400")
+
+    assert len(calls) == 1
+
+
+def test_search_stops_query_variants_after_http_429(monkeypatch):
+    """Do not amplify a PubMed rate limit with immediate fallback variants."""
+    calls = []
+
+    def fake_fetch(query, limit):
+        calls.append(query)
+        raise urllib.error.HTTPError(
+            "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi",
+            429,
+            "Too Many Requests",
+            {},
+            None,
+        )
+
+    monkeypatch.setattr(pubmed_search, "_fetch_pubmed_articles", fake_fetch)
+    outcome = pubmed_search.search_pubmed_with_status(
+        "Mediterranean diet cardiovascular disease prevention", limit=3
+    )
+
+    assert outcome.status == "unavailable"
+    assert outcome.failed_attempts == 1
+    assert len(calls) == 1

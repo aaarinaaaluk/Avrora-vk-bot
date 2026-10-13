@@ -39,3 +39,11 @@ def test_personal_medical_question_about_child():
 def test_general_claim_about_children_is_not_automatically_personal():
     result = classify_intent("Ожирение у детей связано с питанием")
     assert result.intent == IntentType.FACT_CLAIM
+
+
+def test_risky_question_about_cancelling_prescribed_medicine_routes_to_clinician():
+    result = classify_intent(
+        "Правда ли, что при диабете 2 типа можно самостоятельно отменить "
+        "назначенные лекарства, если полностью отказаться от сахара?"
+    )
+    assert result.intent == IntentType.PERSONAL_MEDICAL

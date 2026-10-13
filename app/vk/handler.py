@@ -105,12 +105,18 @@ def build_reply(text: str) -> str:
         f"Уверенность: {confidence_label}. {explanation}"
     )
 
-    if result.evidence:
+    # Показываем только источники, которые модель явно отметила как
+    # поддерживающие или противоречащие утверждению. Просто найденная ссылка
+    # без оценки релевантности не должна выглядеть доказательством.
+    assessed_evidence = [
+        item for item in result.evidence if item.supports_claim is not None
+    ]
+    if assessed_evidence:
         reply += "\n\nИсточники:"
         seen_urls = set()
         source_index = 0
 
-        for item in result.evidence:
+        for item in assessed_evidence:
             url = (item.source_url or "").strip()
             if not url.startswith("https://") or url in seen_urls:
                 continue
@@ -125,6 +131,33 @@ def build_reply(text: str) -> str:
 
             if source_index >= 5:
                 break
+        if source_index == 0:
+            reply += "\n\nСсылки не удалось проверить автоматически; их релевантность не подтверждена."
+    elif result.evidence:
+        explanation_lower = result.explanation.casefold()
+        if "найдены кандидаты в источники, но ни один" in explanation_lower:
+            reply += "\n\nКандидаты, не подтверждённые как релевантные, не перечислены как доказательства."
+        elif "оценка gigachat не завершилась" in explanation_lower or "проверка ии не запущена" in explanation_lower:
+            reply += (
+                "\n\nАвтоматическая оценка найденных материалов не завершилась. "
+                "Они не перечислены как доказательства, поскольку их релевантность не подтверждена."
+            )
+        elif "источники по теме" in explanation_lower:
+            reply += (
+                "\n\nНайдены источники по теме, но они не позволяют прямо подтвердить "
+                "или опровергнуть утверждение. Их ссылки не показаны как доказательства."
+            )
+        else:
+            reply += (
+                "\n\nМатериалы были найдены, но бот не подтвердил их непосредственную "
+                "релевантность этому утверждению. Нерелевантные ссылки не показаны. "
+                "Это не означает, что подходящих исследований не существует."
+            )
+    elif "поиск не удалось полностью завершить" in explanation.casefold() or "техническ" in explanation.casefold():
+        reply += (
+            "\n\nПоиск завершился технической ошибкой. Отсутствие результата сейчас "
+            "не означает, что научных доказательств не существует; попробуйте повторить позже."
+        )
     else:
         reply += "\n\nПодходящие источники не найдены."
 

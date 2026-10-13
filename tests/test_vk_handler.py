@@ -154,3 +154,33 @@ def test_send_vk_message_retries_timeout_with_same_random_id(monkeypatch):
     )
 
     assert attempts == [(123456789, 30), (123456789, 30)]
+
+
+def test_build_reply_does_not_show_unassessed_sources_as_evidence(monkeypatch):
+    from app.core.verifier import ConfidenceLevel, EvidenceItem, VerificationResult, VerificationStatus
+
+    result = VerificationResult(
+        claim="Средиземноморская диета снижает риск сердечно-сосудистых заболеваний.",
+        status=VerificationStatus.INSUFFICIENT,
+        confidence=ConfidenceLevel.LOW,
+        explanation=(
+            "Модель не смогла подтвердить релевантность найденных материалов и указать, "
+            "какие из них поддерживают утверждение или противоречат ему."
+        ),
+        evidence=[EvidenceItem(
+            source_id="pubmed",
+            source_name="Unrelated article about glaucoma",
+            source_url="https://pubmed.ncbi.nlm.nih.gov/12345678/",
+            evidence_summary="Unrelated text",
+            relevant=False,
+            supports_claim=None,
+        )],
+    )
+    monkeypatch.setattr(handler, "check_claim", lambda claim: result)
+
+    reply = handler.build_reply(
+        "Средиземноморская диета снижает риск сердечно-сосудистых заболеваний."
+    )
+
+    assert "12345678" not in reply
+    assert "не означает, что подходящих исследований не существует" in reply

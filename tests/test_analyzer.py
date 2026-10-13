@@ -50,3 +50,14 @@ def test_personal_medical_question_about_relative_routes_to_clinician():
     assert result.route == AnalysisRoute.CLINICIAN_GUIDANCE
     assert result.candidate_sources == []
     assert "другого конкретного человека" in result.safety_message
+
+
+def test_question_about_stopping_medicine_gets_specific_safety_message():
+    result = analyze_query(
+        "Правда ли, что при диабете 2 типа можно самостоятельно отменить "
+        "назначенные лекарства, если полностью отказаться от сахара?"
+    )
+    assert result.route == AnalysisRoute.CLINICIAN_GUIDANCE
+    assert result.safety_message is not None
+    assert "не отменяйте" in result.safety_message.lower()
+    assert result.candidate_sources == []

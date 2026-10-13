@@ -9,6 +9,7 @@ from app.classifier.claim_type import (
 from app.classifier.intent import (
     IntentType,
     classify_intent,
+    is_risky_treatment_question,
 )
 from app.core.source_catalog import find_sources_by_claim_types
 
@@ -40,12 +41,20 @@ def analyze_query(text: str) -> AnalysisResult:
 
     if intent_result.intent == IntentType.PERSONAL_MEDICAL:
         route = AnalysisRoute.CLINICIAN_GUIDANCE
-        safety_message = (
-            "Этот вопрос касается вашего здоровья или здоровья другого конкретного человека. "
-            "Подходящий рацион и лечение зависят от индивидуальных обстоятельств. "
-            "Обсудите выбор диеты с квалифицированным медицинским специалистом. "
-            "Сервис не ставит диагнозы и не назначает лечение."
-        )
+        if is_risky_treatment_question(text):
+            safety_message = (
+                "Не отменяйте и не меняйте назначенные лекарства самостоятельно, даже если "
+                "изменили питание. Обсудите любые изменения лечения с лечащим врачом. "
+                "Если состояние резко ухудшилось или возникла тяжёлая реакция на лекарство, "
+                "обратитесь за срочной медицинской помощью. Сервис не назначает и не отменяет лечение."
+            )
+        else:
+            safety_message = (
+                "Этот вопрос касается вашего здоровья или здоровья другого конкретного человека. "
+                "Подходящий рацион и лечение зависят от индивидуальных обстоятельств. "
+                "Обсудите выбор диеты с квалифицированным медицинским специалистом. "
+                "Сервис не ставит диагнозы и не назначает лечение."
+            )
         sources = []
 
     elif intent_result.intent == IntentType.GENERAL_QUESTION:

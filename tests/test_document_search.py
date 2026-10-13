@@ -208,3 +208,15 @@ def test_specific_gluten_query_selects_celiac_pdf():
         item,
         "Безглютеновая диета нужна при целиакии",
     )
+
+
+def test_generic_acid_term_does_not_select_folate_anemia_for_omega3_claim():
+    item = {
+        "title": "Фолиеводефицитная анемия",
+        "filename": "КР540.pdf",
+        "search_keywords": ["фолиевая кислота", "фолат", "анемия"],
+    }
+    assert not document_search._document_matches_query(
+        item,
+        "Омега-3 полиненасыщенные жирные кислоты защищают сетчатку от возрастной дегенерации",
+    )
